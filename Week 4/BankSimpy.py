@@ -16,7 +16,7 @@ AVG_SERVICE_TIME = [12, 13, 5, 30]  # 4 services
 waitingtime = []
 queuelgth = []
 
-def source(env, number, interval, counter, frontcounter):
+def source(env, number, interval, counters, frontcounter):
     """Source generates customers randomly"""
     #for i in range(number):
 
@@ -25,13 +25,13 @@ def source(env, number, interval, counter, frontcounter):
     while True:
             # generator function
         service_index = random.randint(0, len(AVG_SERVICE_TIME)-1)
-        c = customer(env, f'Customer{numcustomers:02d}', counter, frontcounter, time_in_bank=AVG_SERVICE_TIME[service_index])
+        c = customer(env, f'Customer{numcustomers:02d}', counters[service_index], frontcounter, time_in_bank=AVG_SERVICE_TIME[service_index])
         env.process(c)
         t = random.expovariate(1.0 / interval)
         yield env.timeout(t)
         numcustomers += 1
 
-        queuelgth.append(len(counter.queue))
+        #queuelgth.append(len(counter.queue))
 
         timeelapsed = env.now - starttime
         if timeelapsed > 8*60:
@@ -44,7 +44,11 @@ def customer(env, name, counter, frontcounter, time_in_bank):
     print(f'{arrive:7.4f} {name}: Here I am')
 
     # 2) go to front counter first
-    
+    with frontcounter.request() as req:  # make a request for number
+        # Wait for the frontcounter service
+        yield req
+
+
 
     # queue at actual counter
     with counter.request() as req:
@@ -58,8 +62,6 @@ def customer(env, name, counter, frontcounter, time_in_bank):
         if req in results:
             # We got to the counter
             print(f'{env.now:7.4f} {name}: Waited {wait:6.3f}')
-
-
 
             tib = random.expovariate(1.0 / time_in_bank)
             yield env.timeout(tib)
@@ -76,12 +78,15 @@ random.seed(RANDOM_SEED)
 env = simpy.Environment()
 
 # Start processes and run
-counter = simpy.Resource(env, capacity=3)
 
 # 1) create a special front counter
 frontcounter = simpy.Resource(env, capacity=1)
 
-env.process(source(env, NEW_CUSTOMERS, INTERVAL_CUSTOMERS, counter, frontcounter))
+counters = []
+for i in range(len(AVG_SERVICE_TIME)):
+    counters.append(simpy.Resource(env, capacity=1))
+
+env.process(source(env, NEW_CUSTOMERS, INTERVAL_CUSTOMERS, counters, frontcounter))
 env.run()
 
 print('waiting time: ', waitingtime)
