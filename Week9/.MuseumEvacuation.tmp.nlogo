@@ -15,7 +15,7 @@ to setup
       set size 2              ;; bigger turtles are easier to see
       set pen-size 2          ;; thicker lines are easier to see
       face one-of neighbors4  ;; face north, south, east, or west
-      set walldesire random 50 + 20
+      set walldesire random 50
       set visited (list)
       set nexttask [ -> lookforwall]
       set color blue
