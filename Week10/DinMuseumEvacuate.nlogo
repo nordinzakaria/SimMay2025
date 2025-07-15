@@ -1,103 +1,163 @@
-globals [
-  initial-trees   ;; how many trees (green patches) we started with
-]
-
+turtles-own [direction walldesire walltime visited nexttask velocity]
 
 to setup
   clear-all
-  ;; make some green trees
-  ask patches [
-    if (random 100) < density [
-      set pcolor green
-    ]
-    ;; make a column of burning trees at the left-edge
-    if pxcor = min-pxcor [
-      set pcolor red
+  ;; make some random walls for the turtles to follow.
+  ;; the details aren't important.
+  ask patches [ if random-float 1.0 < 0.01 [ set pcolor brown ] ]
+  ask patches with [pcolor = brown] [ ask patches in-radius random-float 3 [ set pcolor brown ] ]
+
+  ask patches [ if random-float 1.0 < 0.001 [ set pcolor red ] ]
+  ask patches with [pcolor = red] [ ask patches in-radius random-float 2 [ set pcolor red ] ]
+
+
+  ;; ask patches with [count neighbors4 with [pcolor = brown] = 4] [ set pcolor brown ]
+  ;; now make some turtles. SPROUT puts
+  ;; the turtles on patch centers
+  ask n-of 40 patches with [pcolor = black] [
+    sprout 1 [
+      if count neighbors4 with [pcolor = brown] = 4 [ die ]  ;; trapped!
+      set size 2              ;; bigger turtles are easier to see
+      set pen-size 2          ;; thicker lines are easier to see
+      face one-of neighbors4  ;; face north, south, east, or west
+      set walldesire random 50 + 20
+      set visited (list)
+      set velocity random 10
+
+      set nexttask [ -> lookforredwall]
+      set color blue
+      if who = 0
+      [set color red]
     ]
   ]
-  ;; keep track of how many trees there are
-  set initial-trees count patches with [pcolor = green]
+
+  ;ask turtle 0 [set color red]
   reset-ticks
 end
 
 to go
-  ;; stop the model when done
-  if all? patches [ pcolor != red ] [
-    stop
+  look-for-exit
+  ask turtles [ walk ]
+
+  ask turtle 0 [
+    ;set color red
+    print nexttask
+    if length visited > 0
+    [print length visited]
   ]
-  ;; ask the burning trees to set fire to any neighboring non-burning trees
-  ask patches with [ pcolor = red ] [ ;; ask the burning trees
-    ask neighbors4 with [pcolor = green] [ ;; ask their non-burning neighbor trees
-      set pcolor red ;; to catch on fire
-    ]
-    set pcolor red - 3.5 ;; once the tree is burned, darken its color
-  ]
-  tick ;; advance the clock by one “tick”
+  tick
+end
+
+to-report wall?
+  report brown = [pcolor] of patch-ahead 1
 end
 
 
-; Copyright 2006 Uri Wilensky.
-; See Info tab for full copyright and license.
+to-report redwall?
+  report red = [pcolor] of patch-ahead 1
+end
+
+to-report agent-in-front?
+  let target-patch patch-ahead 1
+  report any? turtles-on target-patch
+end
+
+to look-for-exit
+ ask turtles [
+   let patches-in-cone patches in-cone 10 80
+
+   let target-patches patches-in-cone with [pcolor = red]
+   ;;print target-patches
+
+   if any? target-patches
+    [
+     let target-patch one-of target-patches
+     face target-patch
+    ]
+ ]
+end
+
+to-report havevisited? [coord]
+  let x item 0 coord
+  let y item 1 coord
+
+  foreach visited
+  [
+    ccoord ->
+
+    let cx (item 0 ccoord)
+    let cy (item 1 ccoord)
+
+    let dist (x - cx)*(x - cx) + (y - cy)* (y - cy)
+    set dist sqrt dist
+    if dist < 5
+      [report true]
+
+  ]
+  report false
+end
+
+to lookforredwall
+  if redwall?
+  [
+    stop
+  ]
+
+  if wall?
+  [
+    right random 180 + 90
+  ]
+
+  fd velocity
+
+end
+
+
+to walk  ;; turtle procedure
+
+  run nexttask
+  if agent-in-front? [ right random 180 + 90 ]
+
+end
+
+
+; Public Domain:
+; To the extent possible under law, Uri Wilensky has waived all
+; copyright and related or neighboring rights to this model.
 @#$#@#$#@
 GRAPHICS-WINDOW
-200
+201
 10
-710
-521
+706
+516
 -1
 -1
-2.0
+7.0
 1
 10
 1
 1
 1
 0
-0
-0
 1
--125
-125
--125
-125
+1
+1
+-35
+35
+-35
+35
 1
 1
 1
 ticks
 30.0
 
-MONITOR
-43
-131
-158
-176
-percent burned
-(count patches with [shade-of? pcolor red]) / initial-trees   * 100
-1
-1
-11
-
-SLIDER
-5
-38
-190
-71
-density
-density
-0.0
-99.0
-57.0
-1.0
-1
-%
-HORIZONTAL
-
 BUTTON
-106
-79
-175
-115
-go
+100
+40
+167
+73
+NIL
 go
 T
 1
@@ -109,12 +169,22 @@ NIL
 NIL
 0
 
+TEXTBOX
+14
+155
+189
+189
+blue = follow right-hand wall,\ngreen = follow left-hand-wall
+11
+0.0
+1
+
 BUTTON
-26
-79
-96
-115
-setup
+32
+40
+98
+73
+NIL
 setup
 NIL
 1
@@ -126,106 +196,64 @@ NIL
 NIL
 1
 
+BUTTON
+51
+90
+146
+123
+NIL
+pen-down
+NIL
+1
+T
+TURTLE
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+53
+212
+116
+245
+Step
+go
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
 @#$#@#$#@
-## ACKNOWLEDGMENT
-
-This model is from Chapter Three of the book "Introduction to Agent-Based Modeling: Modeling Natural, Social and Engineered Complex Systems with NetLogo", by Uri Wilensky & William Rand.
-
-* Wilensky, U. & Rand, W. (2015). Introduction to Agent-Based Modeling: Modeling Natural, Social and Engineered Complex Systems with NetLogo. Cambridge, MA. MIT Press.
-
-This model is in the IABM Textbook folder of the NetLogo Models Library. The model, as well as any updates to the model, can also be found on the textbook website: http://www.intro-to-abm.com/.
-
 ## WHAT IS IT?
 
-This model simulates the spread of a fire through a forest.  It shows that the fire's chance of reaching the right edge of the forest depends critically on the density of trees. This is an example of a common feature of complex systems, the presence of a non-linear threshold or critical parameter.
-
-This is a simplified version of the  Fire model in the Earth Science section of the NetLogo Models library.
+The turtles in this example follow walls made out of colored patches.  Some turtles try to keep the wall on their right; others keep the wall on their left.
 
 ## HOW IT WORKS
 
-The fire starts on the left edge of the forest, and spreads to neighboring trees. The fire spreads in four directions: north, east, south, and west.
-
-The model assumes there is no wind.  So, the fire must have trees along its path in order to advance.  That is, the fire cannot skip over an unwooded area (patch), so such a patch blocks the fire's motion in that direction.
-
-## HOW TO USE IT
-
-Click the SETUP button to set up the trees (green) and fire (red on the left-hand side).
-
-Click the GO button to start the simulation.
-
-The DENSITY slider controls the density of trees in the forest. (Note: Changes in the DENSITY slider do not take effect until the next SETUP.)
+Consider a turtle that wants to keep a wall on its right.  If there is no wall immediately to its right, but there is a wall behind it on the right, it must turn right in order not to lose the wall.  If there's a wall directly in front of the turtle, it keeps turning left until there's free space in front of it.  Then it can move forward.
 
 ## THINGS TO NOTICE
 
-When you run the model, how much of the forest burns. If you run it again with the same settings, do the same trees burn? How similar is the burn from run to run?
+The turtles always stay on patch centers and never move diagonally.
 
-Each turtle that represents a piece of the fire is born and then dies without ever moving.  If the fire is made of turtles but no turtles are moving, what does it mean to say that the fire moves?  This is an example of different levels in a system: at the level of the individual turtles, there is no motion, but at the level of the turtles collectively over time, the fire moves.
-
-## THINGS TO TRY
-
-Set the density of trees to 55%. At this setting, there is virtually no chance that the fire will reach the right edge of the forest. Set the density of trees to 70%. At this setting, it is almost certain that the fire will reach the right edge. There is a sharp transition around 59% density. At 59% density, the fire has a 50/50 chance of reaching the right edge.
-
-Try setting up and running a BehaviorSpace experiment (see Tools menu) to analyze the percent burned at different tree density levels. Plot the burn-percentage against the density. What kind of curve do you get?
-
-Try changing the size of the lattice (`max-pxcor` and `max-pycor` in the Model Settings). Does it change the burn behavior of the fire?
+If there isn't a wall next to a turtle when it is born, it just moves forward until it finds one.
 
 ## EXTENDING THE MODEL
 
-What if the fire could spread in eight directions (including diagonals)? To do that, use `neighbors` instead of `neighbors4`. How would that change the fire's chances of reaching the right edge? In this model, what "critical density" of trees is needed for the fire to propagate?
-
-Add wind to the model so that the fire can "jump" greater distances in certain directions.
-
-Add the ability to plant trees where you want them. What configurations of trees allow the fire to cross the forest? Which don't? Why is over 59% density likely to result in a tree configuration that works? Why does the likelihood of such a configuration increase so rapidly at the 59% density?
+The `walk` procedure will get stuck in an infinite loop if a turtle finds itself surrounded by walls on all four sides.  The `setup` procedure detects such turtles and kills them off, so the model won't get stuck.  How would you change `walk` not to have this problem?  (You might need to do so in a model where the walls could move and grow.)
 
 ## NETLOGO FEATURES
 
-Unburned trees are represented by green patches; burning trees are represented by turtles.  Two breeds of turtles are used, "fires" and "embers".  When a tree catches fire, a new fire turtle is created; a fire turns into an ember on the next turn.  Notice how the program gradually darkens the color of embers to achieve the visual effect of burning out.
+Turtles use the `patch-right-and-ahead` primitive to look at patches around themselves, relative to the direction the turtle is facing.
 
-The `neighbors4` primitive is used to spread the fire.
-
-You could also write the model without turtles by just having the patches spread the fire, and doing it that way makes the code a little simpler.   Written that way, the model would run much slower, since all of the patches would always be active.  By using turtles, it's much easier to restrict the model's activity to just the area around the leading edge of the fire.
-
-See the "CA 1D Rule 30" and "CA 1D Rule 30 Turtle" for an example of a model written both with and without turtles.
-
-## RELATED MODELS
-
-Fire, Percolation, Rumor Mill
-
-## CREDITS AND REFERENCES
-
-This model is a simplified version of:
-
-* Wilensky, U. (1997).  NetLogo Fire model.  http://ccl.northwestern.edu/netlogo/models/Fire.  Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.
-
-## HOW TO CITE
-
-This model is part of the textbook, “Introduction to Agent-Based Modeling: Modeling Natural, Social and Engineered Complex Systems with NetLogo.”
-
-If you mention this model or the NetLogo software in a publication, we ask that you include the citations below.
-
-For the model itself:
-
-* Wilensky, U. (2006).  NetLogo Fire Simple model.  http://ccl.northwestern.edu/netlogo/models/FireSimple.  Center for Connected Learning and Computer-Based Modeling, Northwestern Institute on Complex Systems, Northwestern University, Evanston, IL.
-
-Please cite the NetLogo software as:
-
-* Wilensky, U. (1999). NetLogo. http://ccl.northwestern.edu/netlogo/. Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.
-
-Please cite the textbook as:
-
-* Wilensky, U. & Rand, W. (2015). Introduction to Agent-Based Modeling: Modeling Natural, Social and Engineered Complex Systems with NetLogo. Cambridge, MA. MIT Press.
-
-## COPYRIGHT AND LICENSE
-
-Copyright 2006 Uri Wilensky.
-
-![CC BY-NC-SA 3.0](http://ccl.northwestern.edu/images/creativecommons/byncsa.png)
-
-This work is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 3.0 License.  To view a copy of this license, visit https://creativecommons.org/licenses/by-nc-sa/3.0/ or send a letter to Creative Commons, 559 Nathan Abbott Way, Stanford, California 94305, USA.
-
-Commercial licenses are also available. To inquire about commercial licenses, please contact Uri Wilensky at uri@northwestern.edu.
-
-<!-- 2006 -->
+<!-- 2007 -->
 @#$#@#$#@
 default
 true
@@ -511,9 +539,11 @@ Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
 NetLogo 6.4.0
 @#$#@#$#@
-set density 60.0
+random-seed 2
 setup
-repeat 180 [ go ]
+repeat 50 [ go ]
+ask turtles [ pen-down ]
+repeat 150 [ go ]
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
